@@ -47,6 +47,11 @@ namespace Com.WaitWha.Checkmarx.SOAP
         string _sessionId;
 
         /// <summary>
+        /// Whether or not to use TLS/SSL for the connection to Checkmarx.
+        /// </summary>
+        public bool UseSSL { get; private set; }
+
+        /// <summary>
         /// EndPoint for Checkmarx
         /// </summary>
         Uri _endpoint;
@@ -79,7 +84,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
                 //cache the SOAP client as well.
                 if (_client == null)
                 {
-                    BasicHttpBinding binding = new BasicHttpBinding(BasicHttpSecurityMode.Transport); //enable TLS/SSL
+                    BasicHttpBinding binding = 
+                        new BasicHttpBinding((UseSSL) ? BasicHttpSecurityMode.Transport : BasicHttpSecurityMode.None);
                     binding.MaxReceivedMessageSize = MAX_RECEIVED_MESSAGE_SIZE;
                     binding.UseDefaultWebProxy = true;
 
@@ -93,10 +99,17 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// <summary>
         /// Constructor
         /// </summary>
-        public CxWebService()
+        /// <param name="useSsl">Whether or not to use TLS/SSL for the connection to Checkmarx.</param>
+        public CxWebService(bool useSsl)
         {
             _disposed = false;
+            UseSSL = useSsl;
         }
+
+        /// <summary>
+        /// Default constructor for TLS/SSL connections to Checkmarx. 
+        /// </summary>
+        public CxWebService() : this(true) { }
 
         /// <summary>
         /// Destructor
@@ -178,7 +191,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             CxSDKWebService.ProjectDisplayData[] projects = new CxSDKWebService.ProjectDisplayData[0];
             try
             {
-                CxSDKWebService.CxWSResponseProjectDisplayData response = CallCheckmarxApi(() => SoapClient.GetProjectDisplayData(_sessionId));
+                CxSDKWebService.CxWSResponseProjectDisplayData response = 
+                    CallCheckmarxApi(() => SoapClient.GetProjectDisplayData(_sessionId));
                 return response.projectList;
             }
             catch (ResponseException e)
@@ -259,9 +273,9 @@ namespace Com.WaitWha.Checkmarx.SOAP
             bool wasUpdated = false;
             try
             {
-                CxSDKWebService.CxWSBasicResponse response = 
+                CxSDKWebService.CxWSBasicRepsonse response = 
                     CallCheckmarxApi(() => SoapClient.UpdateProjectIncrementalConfiguration(_sessionId, projectId, configuration));
-                wasUpdated = response.IsSuccessfull;
+                wasUpdated = response.IsSuccesfull;
             }
             catch (ResponseException e)
             {
@@ -315,11 +329,16 @@ namespace Com.WaitWha.Checkmarx.SOAP
             if (_sessionId == null)
                 throw new AuthenticationException();
 
+            CxSDKWebService.ArrayOfLong aLong = new CxSDKWebService.ArrayOfLong();
+            foreach (long projectId in projectIds)
+                aLong.Add(projectId);
+
             bool deleted = false;
             try
             {
-                CxSDKWebService.BasicResponse response = CallCheckmarxApi(() => SoapClient.DeleteProjects(_sessionId, projectIds));
-                deleted = response.IsSuccessfull;
+                CxSDKWebService.BasicRepsonse response = 
+                    CallCheckmarxApi(() => SoapClient.DeleteProjects(_sessionId, aLong));
+                deleted = response.IsSuccesfull;
             }
             catch (ResponseException e)
             {
@@ -356,7 +375,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             CxSDKWebService.Preset[] presets = new CxSDKWebService.Preset[0];
             try
             {
-                CxSDKWebService.CxWSResponsePresetList response = CallCheckmarxApi(() => SoapClient.GetPresetList(_sessionId));
+                CxSDKWebService.CxWSResponsePresetList response = 
+                    CallCheckmarxApi(() => SoapClient.GetPresetList(_sessionId));
                 return response.PresetList;
             }
             catch (ResponseException e)
@@ -463,14 +483,15 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// </summary>
         /// <param name="runId"></param>
         /// <returns>CxSDKWebService.ScanStatus</returns>
-        public CxSDKWebService.ScanStatus GetScanStatus(string runId)
+        public CxSDKWebService.ScanStatusEnum GetScanStatus(string runId)
         {
             if (_sessionId == null)
                 throw new AuthenticationException();
 
             try
             {
-                CxSDKWebService.CxWSResponseScanStatus response = CallCheckmarxApi(() => SoapClient.GetScanStatus(_sessionId, runId));
+                CxSDKWebService.CxWSResponseScanStatus response = 
+                    CallCheckmarxApi(() => SoapClient.GetSingleScanStatus(_sessionId, runId));
                 return response.CurrentStatus;
             }
             catch (ResponseException e)
@@ -499,7 +520,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             bool updated = false;
             try
             {
-                CxSDKWebService.CxWSBasicResponse response = CallCheckmarxApi(() => SoapClient.UpdateScanComment(_sessionId, scanId, comment));
+                CxSDKWebService.CxWSBasicRepsonse response = 
+                    CallCheckmarxApi(() => SoapClient.UpdateScanComment(_sessionId, scanId, comment));
                 updated = response.IsSuccesfull;
             }
             catch (ResponseException e)
@@ -529,8 +551,9 @@ namespace Com.WaitWha.Checkmarx.SOAP
             bool canceled = false;
             try
             {
-                CxSDKWebService.CxWSBasicResponse response = CallCheckmarxApi(() => SoapClient.CancelScan(_sessionId, runId));
-                canceled = response.IsSuccessfull;
+                CxSDKWebService.CxWSBasicRepsonse response = 
+                    CallCheckmarxApi(() => SoapClient.CancelScan(_sessionId, runId));
+                canceled = response.IsSuccesfull;
             }
             catch (ResponseException e)
             {
@@ -556,11 +579,16 @@ namespace Com.WaitWha.Checkmarx.SOAP
             if (_sessionId == null)
                 throw new AuthenticationException();
 
+            CxSDKWebService.ArrayOfLong aLong = new CxSDKWebService.ArrayOfLong();
+            foreach (long scanId in scanIds)
+                aLong.Add(scanId);
+
             bool deleted = false;
             try
             {
-                CxSDKWebService.CxWSBasicResponse response = CallCheckmarxApi(() => SoapClient.DeleteScans(_sessionId, scanIds));
-                deleted = response.IsSuccessfull;
+                CxSDKWebService.CxWSBasicRepsonse response = 
+                    CallCheckmarxApi(() => SoapClient.DeleteScans(_sessionId, aLong));
+                deleted = response.IsSuccesfull;
             }
             catch (ResponseException e)
             {
@@ -752,7 +780,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             CxSDKWebService.UserData[] data = new CxSDKWebService.UserData[0];
             try
             {
-                CxSDKWebService.CxWSResponseUserData responses = CallCheckmarxApi(() => SoapClient.GetAllUsers(_sessionId));
+                CxSDKWebService.CxWSResponseUserData responses = 
+                    CallCheckmarxApi(() => SoapClient.GetAllUsers(_sessionId));
                 data = response.UserDataList;
             }
             catch (ResponseException e)
@@ -783,8 +812,9 @@ namespace Com.WaitWha.Checkmarx.SOAP
             bool deleted = false;
             try
             {
-                CxSDKWebService.CxWSBasicResponse response = CallCheckmarxApi(() => SoapClient.DeleteUser(_sessionId, userId));
-                deleted = response.IsSuccessfull;
+                CxSDKWebService.CxWSBasicRepsonse response = 
+                    CallCheckmarxApi(() => SoapClient.DeleteUser(_sessionId, userId));
+                deleted = response.IsSuccesfull;
             }
             catch (ResponseException e)
             {
@@ -805,7 +835,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// </summary>
         /// <typeparam name="TResult"></typeparam>
         /// <param name="apiCall">SOAP API call to make.</param>
-        /// <returns>CxWSBasicResponse, the base for all responses from Checkmarx SOAP API.</returns>
+        /// <returns>CxWSBasicRepsonse, the base for all responses from Checkmarx SOAP API.</returns>
         /// <exception cref="ResponseException">Thrown when a call is not successful, but communications are OK.</exception>
         /// <exception cref="CommunicationException">Thrown when communications prevent the call to the service from succeeding.</exception>
         TResult CallCheckmarxApi<TResult>(Func<TResult> apiCall)
