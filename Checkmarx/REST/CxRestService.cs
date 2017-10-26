@@ -36,11 +36,20 @@ namespace Com.WaitWha.Checkmarx.REST
                 bool foundCxCSRFToken = false;
                 foreach(Cookie cookie in Cookies.GetCookies(Client.BaseAddress))
                 {
-                    if (cookie.Expired)
-                        return false;
+                    if(cookie.Name.Equals(CX_COOKIE))
+                    {
+                        foundCxCookie = true;
+                        if (cookie.Expired)
+                            return false;
 
-                    foundCxCookie = (!foundCxCookie) ? cookie.Name.Equals(CX_COOKIE) : true;
-                    foundCxCSRFToken = (!foundCxCSRFToken) ? cookie.Name.Equals(CX_CSRF_TOKEN) : true;
+                    }
+                    else if(cookie.Name.Equals(CX_CSRF_TOKEN))
+                    {
+                        foundCxCSRFToken = true;
+                        if (cookie.Expired)
+                            return false;
+
+                    }
                 }
 
                 return foundCxCSRFToken && foundCxCookie;
