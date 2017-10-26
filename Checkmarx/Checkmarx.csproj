@@ -51,6 +51,10 @@
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="REST\CxRestService.cs" />
+    <Compile Include="REST\GetAllEngineDetailsResponse.cs" />
+    <Compile Include="REST\GetAllScanInQueueResponse.cs" />
+    <Compile Include="REST\NameValuePairs.cs" />
+    <Compile Include="REST\SimpleJsonObject.cs" />
     <Compile Include="SOAP\AuthenticationException.cs" />
     <Compile Include="SOAP\CxUtils.cs" />
     <Compile Include="SOAP\CxWebService.cs" />
