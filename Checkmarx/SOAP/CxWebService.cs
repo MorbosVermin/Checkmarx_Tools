@@ -1,7 +1,9 @@
-﻿using log4net;
+﻿using Com.WaitWha.Checkmarx.Utils;
+using log4net;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security;
 using System.ServiceModel;
 using System.Text;
 using System.Threading.Tasks;
@@ -135,11 +137,11 @@ namespace Com.WaitWha.Checkmarx.SOAP
         ///     Console.WriteLine("{0}.", (service.Login(username, password) ? "OK" : "FAILED"));
         /// } //service.Logout() is automatically called.
         /// </example>
-        public bool Login(string username, string password)
+        public bool Login(string username, SecureString password)
         {
             CxSDKWebService.Credentials creds = new CxSDKWebService.Credentials();
             creds.User = username;
-            creds.Pass = password;
+            creds.Pass = StringUtils.GetUnsecureString(password);
 
             bool ok = false;
             try
@@ -148,10 +150,15 @@ namespace Com.WaitWha.Checkmarx.SOAP
                 _sessionId = response.SessionId; //cache the session ID
                 log.Info(String.Format("Successfully logged into Checkmarx WS at {0}: {1}", _endpoint.DnsSafeHost, _sessionId));
                 ok = true;
+
             }
             catch (ResponseException e)
             {
                 log.Error(String.Format("Error, unable to logon to Checkmarx WS at {0}: {1}", _endpoint.DnsSafeHost, e.Message), e);
+
+            }finally
+            {
+                creds = null;
             }
 
             return ok;

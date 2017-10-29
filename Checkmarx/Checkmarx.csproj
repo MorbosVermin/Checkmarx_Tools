@@ -40,6 +40,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Security" />
     <Reference Include="System.ServiceModel" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
@@ -59,6 +60,7 @@
     <Compile Include="SOAP\CxUtils.cs" />
     <Compile Include="SOAP\CxWebService.cs" />
     <Compile Include="SOAP\ResponseException.cs" />
+    <Compile Include="Utils\StringUtils.cs" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

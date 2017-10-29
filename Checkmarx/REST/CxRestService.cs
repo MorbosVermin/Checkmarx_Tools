@@ -1,10 +1,12 @@
-﻿using log4net;
+﻿using Com.WaitWha.Checkmarx.Utils;
+using log4net;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Security;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -181,12 +183,12 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <param name="password"></param>
         /// <returns></returns>
         /// <seealso cref="https://checkmarx.atlassian.net/wiki/spaces/KC/pages/135561432/Authentication+Login"/>
-        public async Task<bool> Login(string username, string password)
+        public async Task<bool> Login(string username, SecureString password)
         {
             Dictionary<string, string> dict = new Dictionary<string, string>()
             {
                 { "userName", username },
-                { "password", password }
+                { "password", StringUtils.GetUnsecureString(password) }
             };
 
             string json = JsonConvert.SerializeObject(dict);
@@ -199,6 +201,10 @@ namespace Com.WaitWha.Checkmarx.REST
             }catch(Exception e)
             {
                 Log.Error(String.Format("Failed to login to Checkmarx as {0}: {1}", username, e.Message), e);
+
+            }finally
+            {
+                dict = null;
             }
 
             return false;
