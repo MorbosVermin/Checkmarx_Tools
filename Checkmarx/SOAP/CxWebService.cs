@@ -198,8 +198,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             CxSDKWebService.ProjectDisplayData[] projects = new CxSDKWebService.ProjectDisplayData[0];
             try
             {
-                CxSDKWebService.CxWSResponseProjectDisplayData response = 
-                    CallCheckmarxApi(() => SoapClient.GetProjectDisplayData(_sessionId));
+                CxSDKWebService.CxWSResponseProjectsDisplayData response = 
+                    CallCheckmarxApi(() => SoapClient.GetProjectsDisplayData(_sessionId));
                 return response.projectList;
             }
             catch (ResponseException e)
@@ -343,7 +343,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             bool deleted = false;
             try
             {
-                CxSDKWebService.BasicRepsonse response = 
+                CxSDKWebService.CxWSBasicRepsonse response = 
                     CallCheckmarxApi(() => SoapClient.DeleteProjects(_sessionId, aLong));
                 deleted = response.IsSuccesfull;
             }
@@ -463,7 +463,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             scanArgs.PrjSettings = projectSettings;
             scanArgs.SrcCodeSettings = sourceCodeSettings;
             scanArgs.IsIncremental = isIncremental;
-            scanArgs.IsPrivate = isPrivate;
+            scanArgs.IsPrivateScan = isPrivate;
 
             string runId = null;
             try
@@ -490,7 +490,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// </summary>
         /// <param name="runId"></param>
         /// <returns>CxSDKWebService.ScanStatus</returns>
-        public CxSDKWebService.ScanStatusEnum GetScanStatus(string runId)
+        public CxSDKWebService.CurrentStatusEnum GetScanStatus(string runId)
         {
             if (_sessionId == null)
                 throw new AuthenticationException();
@@ -498,7 +498,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             try
             {
                 CxSDKWebService.CxWSResponseScanStatus response = 
-                    CallCheckmarxApi(() => SoapClient.GetSingleScanStatus(_sessionId, runId));
+                    CallCheckmarxApi(() => SoapClient.GetStatusOfSingleScan(_sessionId, runId));
                 return response.CurrentStatus;
             }
             catch (ResponseException e)
@@ -510,7 +510,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
                 log.Error(String.Format("Unable to communicate to SOAP API at endpoint {0}: {1} {2}", _endpoint.DnsSafeHost, e.GetType().Name, e.Message), e);
             }
 
-            return null; //TODO -- Fix me.
+            return CxSDKWebService.CurrentStatusEnum.Unknown;
         }
 
         /// <summary>
@@ -664,7 +664,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             long id = 0L;
             try
             {
-                CxSDKWebService.CxWSReportResponse response = CallCheckmarxApi(() => SoapClient.CreateScanReport(_sessionId, reportRequest));
+                CxSDKWebService.CxWSCreateReportResponse response = 
+                    CallCheckmarxApi(() => SoapClient.CreateScanReport(_sessionId, reportRequest));
                 id = response.ID;
             }
             catch (ResponseException e)
@@ -685,7 +686,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// <param name="reportId">Report ID</param>
         /// <returns>CxSDKWebService.CxWSReportStatus</returns>
         /// <see cref="CreateScanReport(CxSDKWebService.CxWSReportRequest)"/> 
-        public CxSDKWebService.CxWSReportStatus GetScanReportStatus(long reportId)
+        public CxSDKWebService.CxWSReportStatusResponse GetScanReportStatus(long reportId)
         {
             if (_sessionId == null)
                 throw new AuthenticationException();
@@ -693,7 +694,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             try
             {
                 CxSDKWebService.CxWSReportStatusResponse response = CallCheckmarxApi(() => SoapClient.GetScanReportStatus(_sessionId, reportId));
-                return response.ScanReportStatus;
+                return response;
             }
             catch (ResponseException e)
             {
@@ -744,7 +745,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// Get information on all groups related to the current user.
         /// </summary>
         /// <returns></returns>
-        public CxSDKWebService.CxWSGroupList[] GetAssociatedGroupsList()
+        public CxSDKWebService.Group[] GetAssociatedGroupsList()
         {
             if (_sessionId == null)
                 throw new AuthenticationException();
@@ -787,7 +788,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             CxSDKWebService.UserData[] data = new CxSDKWebService.UserData[0];
             try
             {
-                CxSDKWebService.CxWSResponseUserData responses = 
+                CxSDKWebService.CxWSResponseUserData response = 
                     CallCheckmarxApi(() => SoapClient.GetAllUsers(_sessionId));
                 data = response.UserDataList;
             }
@@ -851,7 +852,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
             if (apiCall == null)
             {
                 log.Debug(String.Format("No API call given; calling Logout for session: {0}", _sessionId));
-                apiCall = SoapClient.Logout(_sessionId);
+                SoapClient.Logout(_sessionId);
+                return null;
             }
 
             try
@@ -859,7 +861,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
                 TResult t = apiCall();
                 if (!t.IsSuccesfull)
                 {
-                    throw new ResponseException(t.ErrorMessage, _endpoint);
+                    throw new ResponseException(t.ErrorMessage, EndpointAddress);
                 }
 
                 return t;

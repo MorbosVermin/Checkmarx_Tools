@@ -196,20 +196,21 @@ namespace Com.WaitWha.Checkmarx.CxCLI
                         {
                             foreach (var project in service.GetProjectsToDisplay())
                             {
-                                Console.WriteLine("[{0}] {1}", project.ProjectID, project.ProjectName);
+                                Console.WriteLine("[{0}] {1}", project.projectID, project.ProjectName);
                             }
                         }
                         else
                         {
                             foreach(var scan in service.GetProjectScannedDisplayData())
                             {
-                                Console.WriteLine("[{0}] {1}: {2} high, {3} medium, {4} low, {5} info",
-                                    scan.ScanID,
+                                Console.WriteLine("[{0}] {1} was scanned on {6}: {2} high, {3} medium, {4} low, {5} info",
+                                    scan.ProjectID,
                                     scan.ProjectName,
-                                    scan.High,
-                                    scan.Medium,
-                                    scan.Low,
-                                    scan.Info);
+                                    scan.HighVulnerabilities,
+                                    scan.MediumVulnerabilities,
+                                    scan.LowVulnerabilities,
+                                    scan.InfoVulnerabilities,
+                                    DateTime.FromFileTimeUtc(scan.LastScanDate));
                             }
                         }
                     }
@@ -222,11 +223,6 @@ namespace Com.WaitWha.Checkmarx.CxCLI
             {
                 string name = config.GetValueWithCheck("Name");
                 string uri = config.GetValueWithCheck("Url");
-                if(!uri.EndsWith("/CxWebInterface/"))
-                {
-
-                }
-
                 int minLoc = config.GetValueWithCheck("MinLOC");
                 int maxLoc = config.GetValueWithCheck("MaxLOC");
                 bool blocked = config.GetValueWithCheck("Blocked");
