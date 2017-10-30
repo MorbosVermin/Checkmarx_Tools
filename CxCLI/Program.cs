@@ -9,6 +9,7 @@ using log4net.Repository.Hierarchy;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Security;
 using System.Text;
@@ -100,10 +101,10 @@ namespace Com.WaitWha.Checkmarx.CxCLI
             if (error.Length > 0)
                 Console.Error.WriteLine(error + Environment.NewLine);
 
-            Console.WriteLine("Syntax: {0} [command] -CxServer <uri> -CxUser <username> -CxPass <password> [options]",
-                Process.GetCurrentProcess().MainModule.FileName);
+            string fileName = Path.GetFileName(Process.GetCurrentProcess().MainModule.FileName);
+            Console.WriteLine("Syntax: {0} [command] -CxServer <uri> -CxUser <username> -CxPass <password> [options]", fileName);
 
-            Console.WriteLine("Available Commands: ");
+            Console.WriteLine("Commands: ");
             foreach(Commands c in Enum.GetValues(typeof(Commands)))
             {
                 Console.WriteLine("  {0}", c.ToString());
@@ -115,9 +116,13 @@ namespace Com.WaitWha.Checkmarx.CxCLI
             Console.WriteLine("  -CxPass <password>    The password to use when connecting to Cx.");
 
             Console.WriteLine("Other Options: ");
-            Console.WriteLine("  -v                    Debug/Vervbose mode.");
-            Console.WriteLine("  -log <file>           Path to the log file to log to.");
-
+            Console.WriteLine("      -v                 Debug/Verbose mode.");
+            Console.WriteLine("      -log <file>        Path to the log file to log to.");
+            Console.WriteLine("list <-Projects|-Scans|-Configurations|-Presets|-Users>");
+            Console.WriteLine("scan <-LocationPath <path>|-Zip <path>> [[-IsIncremental] [-IsPrivate] [-CronString <string>] [-UtcEpocStartTime <long>] [-UtcEpocEndTime <long>]]");
+            Console.WriteLine("register -Name <string> -Url <http://checkmarx.server> [-MinLOC <int> -MaxLOC <int> [-IsBlocked] ]");
+            Console.WriteLine("unregister -EngineId <int> [-BlockOnly]");
+            
             Environment.Exit(-1);
         }
 
@@ -183,11 +188,118 @@ namespace Com.WaitWha.Checkmarx.CxCLI
 
             if (config.Command.Equals("scan"))
             {
+                string zipFile = (config.Keys.Contains("Zip") ? config.GetValueWithCheck("Zip") : "");
+                string locationPath = (zipFile.Length == 0) ? config.GetValueWithCheck("LocationPath") : "";
+                bool isIncremental = (config.Keys.Contains("IsIncremental") ? config.GetValueWithCheck("IsIncremental") : false);
+                bool isPrivate = (config.Keys.Contains("IsPrivate") ? config.GetValueWithCheck("IsPrivate") : false);
+                string cronString = (config.Keys.Contains("CronString") ? config.GetValueWithCheck("CronString") : "");
+                int projectId = (config.Keys.Contains("ProjectId") ? config.GetValueWithCheck("ProjectId") : -1);              
+                string projectName = (projectId == -1) ? config.GetValueWithCheck("ProjectName") : "";
+                long presetId = (projectName.Length > 0) ? config.GetValueWithCheck("PresetId") : -1;
+                string teamName = (projectName.Length > 0) ? config.GetValueWithCheck("Team") : "CxServer";
+                long configurationId = (projectName.Length > 0) ? config.GetValueWithCheck("ConfigurationId") : 0;
+                long utcEpochStartTime = (config.Keys.Contains("UtcEpochStartTime") ? config.GetValueWithCheck("UtcEpochStartTime") : 0);
+                long utcEpochEndTime = (config.Keys.Contains("UtcEpochEndTime") ? config.GetValueWithCheck("UtcEpochEndTime") : 0);
 
+                using(CxWebService service = new CxWebService())
+                {
+                    if(service.Login(username, password))
+                    {
+                        CxSDKWebService.ProjectSettings projectSettings = new CxSDKWebService.ProjectSettings();
+                        if (projectId > -1)
+                        {
+                            projectSettings.projectID = projectId;
+                        }
+                        else
+                        {
+                            projectSettings.ProjectName = projectName;
+                            projectSettings.PresetID = presetId;
+                            projectSettings.Owner = username;
+                            projectSettings.ScanConfigurationID = configurationId;
+                        }
+
+                        CxSDKWebService.SourceCodeSettings sourceCodeSettings = new CxSDKWebService.SourceCodeSettings();
+                        if(zipFile.Length > 0)
+                        {
+                            sourceCodeSettings.PackagedCode = new CxSDKWebService.LocalCodeContainer();
+                            sourceCodeSettings.PackagedCode.FileName = Path.GetFileName(zipFile);
+                            sourceCodeSettings.PackagedCode.ZippedFile = File.ReadAllBytes(zipFile);
+                        }
+                        else
+                        {
+                            CxSDKWebService.ScanPath path = new CxSDKWebService.ScanPath();
+                            path.IncludeSubTree = true;
+                            path.Path = locationPath;
+
+                            sourceCodeSettings.PathList = new CxSDKWebService.ScanPath[] { path };
+                        }
+
+                        Console.Write("Scanning {0}, please wait...", (zipFile.Length > 0) ? zipFile : locationPath);
+                        string runId = service.Scan(projectSettings, sourceCodeSettings, isIncremental, isPrivate, cronString, utcEpochStartTime, utcEpochEndTime);
+
+                        int unknownCount = 0;
+                        while (true)
+                        {
+                            if (unknownCount == 2)
+                                break;
+
+                            CxSDKWebService.CxWSResponseScanStatus status = service.GetScanStatus(runId);
+                            switch(status.CurrentStatus)
+                            {
+                                case CxSDKWebService.CurrentStatusEnum.Canceled:
+                                case CxSDKWebService.CurrentStatusEnum.Deleted:
+                                    Console.WriteLine("scan cancelled or deleted! {0}", status.ErrorMessage);
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.Failed:
+                                    Console.WriteLine("failed: {0}", status.ErrorMessage);
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.Finished:
+                                    Console.WriteLine("done: {0}", CxUtils.FromCxDateTime(status.TimeFinished));
+                                    if (config.IsDebug)
+                                    {
+                                        var summary = service.GetScanSummary(status.ScanId);
+                                        Console.WriteLine("{0}loc, {1} high, {2} medium, {3} low, {4} info vulnerabilities.", 
+                                            summary.LOC, 
+                                            summary.High, 
+                                            summary.Medium, 
+                                            summary.Low, 
+                                            summary.Info);
+                                    }
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.Queued:
+                                    Console.Write("X");
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.Unzipping:
+                                    Console.Write("E");
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.WaitingToProcess:
+                                case CxSDKWebService.CurrentStatusEnum.Working:
+                                    Console.Write(".");
+                                    break;
+
+                                case CxSDKWebService.CurrentStatusEnum.Unknown:
+                                    unknownCount++;
+                                    Console.Write("[U]");
+                                    break;
+
+                            }
+                        }
+                    }
+                }
             }
             else if(config.Command.Equals("list"))
             {
                 bool projects = config.Keys.Contains("Projects");
+                bool scans = config.Keys.Contains("Scans");
+                bool presets = config.Keys.Contains("Presets");
+                bool configurations = config.Keys.Contains("Configurations");
+                bool users = config.Keys.Contains("Users");
+
                 using (CxWebService service = new CxWebService())
                 {
                     if (service.Login(username, password))
@@ -196,14 +308,18 @@ namespace Com.WaitWha.Checkmarx.CxCLI
                         {
                             foreach (var project in service.GetProjectsToDisplay())
                             {
-                                Console.WriteLine("[{0}] {1}", project.projectID, project.ProjectName);
+                                Console.WriteLine("[{0}] {1} was last scanned on {2} ({3} total scans)",
+                                    project.projectID,
+                                    project.ProjectName,
+                                    CxUtils.FromCxDateTime(project.LastScanDate),
+                                    project.TotalScans);
                             }
                         }
-                        else
+                        else if(scans)
                         {
                             foreach(var scan in service.GetProjectScannedDisplayData())
                             {
-                                Console.WriteLine("[{0}] {1} was scanned on {6}: {2} high, {3} medium, {4} low, {5} info",
+                                Console.WriteLine("[{0}] {1} scanned at {6}: {2} high, {3} medium, {4} low, {5} info",
                                     scan.ProjectID,
                                     scan.ProjectName,
                                     scan.HighVulnerabilities,
@@ -211,7 +327,33 @@ namespace Com.WaitWha.Checkmarx.CxCLI
                                     scan.LowVulnerabilities,
                                     scan.InfoVulnerabilities,
                                     DateTime.FromFileTimeUtc(scan.LastScanDate));
+                                
                             }
+                        }
+                        else if(presets)
+                        {
+                            foreach(var preset in service.GetPresets())
+                            {
+                                Console.WriteLine("[{0}] {1}", preset.ID, preset.PresetName);
+                            }
+                        }
+                        else if(configurations)
+                        {
+                            foreach(var c in service.GetConfigurationSetList())
+                            {
+                                Console.WriteLine("[{0}] {1}", c.ID, c.ConfigSetName);
+                            }
+                        }
+                        else if(users)
+                        {
+                            foreach(var user in service.GetAllUsers())
+                            {
+                                Console.WriteLine("[{0}] {4} {1} {2} {3}", user.ID, String.Format("{0}, {1}", user.LastName, user.FirstName), user.Email, user.LastLoginDate, user.UserName);
+                            }
+                        }
+                        else
+                        {
+                            Help("Error: -Users, -Presets, -Projects, -Configurations, or -Scans option is required.");
                         }
                     }
                     else
@@ -240,9 +382,7 @@ namespace Com.WaitWha.Checkmarx.CxCLI
             else if(config.Command.Equals("unregister"))
             {
                 int engineId = config.GetValueWithCheck("EngineId");
-                bool blockOnly = false;
-                if (config.Keys.Contains("BlockOnly"))
-                    blockOnly = true;
+                bool blockOnly = config.Keys.Contains("BlockOnly");
 
                 CxRestService service = new CxRestService(new Uri(cxServer));
                 bool loggedIn = service.Login(username, password).GetAwaiter().GetResult();

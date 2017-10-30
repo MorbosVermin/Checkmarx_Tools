@@ -186,6 +186,33 @@ namespace Com.WaitWha.Checkmarx.SOAP
         #region Working with CxSAST Projects
 
         /// <summary>
+        /// Returns a list of configurations within Checkmarx.
+        /// </summary>
+        /// <returns></returns>
+        public CxSDKWebService.ConfigurationSet[] GetConfigurationSetList()
+        {
+            if (_sessionId == null)
+                throw new AuthenticationException();
+
+            try
+            {
+                CxSDKWebService.CxWSResponseConfigSetList response =
+                    CallCheckmarxApi(() => SoapClient.GetConfigurationSetList(_sessionId));
+                return response.ConfigSetList;
+            }
+            catch(ResponseException e)
+            {
+                log.Error(String.Format("Unable to get list of configurations: {0}", e.Message), e);
+            }
+            catch (CommunicationException e)
+            {
+                log.Error(String.Format("Unable to communicate to SOAP API at endpoint {0}: {1} {2}", _endpoint.DnsSafeHost, e.GetType().Name, e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
         /// Returns a list of CxSAST projects available to the current user. This is used primarily for display purposes. However, you
         /// can use this list to get projectIDs which will be used later on.
         /// </summary>
@@ -490,7 +517,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
         /// </summary>
         /// <param name="runId"></param>
         /// <returns>CxSDKWebService.ScanStatus</returns>
-        public CxSDKWebService.CurrentStatusEnum GetScanStatus(string runId)
+        public CxSDKWebService.CxWSResponseScanStatus GetScanStatus(string runId)
         {
             if (_sessionId == null)
                 throw new AuthenticationException();
@@ -499,7 +526,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             {
                 CxSDKWebService.CxWSResponseScanStatus response = 
                     CallCheckmarxApi(() => SoapClient.GetStatusOfSingleScan(_sessionId, runId));
-                return response.CurrentStatus;
+                return response;
             }
             catch (ResponseException e)
             {
@@ -510,7 +537,34 @@ namespace Com.WaitWha.Checkmarx.SOAP
                 log.Error(String.Format("Unable to communicate to SOAP API at endpoint {0}: {1} {2}", _endpoint.DnsSafeHost, e.GetType().Name, e.Message), e);
             }
 
-            return CxSDKWebService.CurrentStatusEnum.Unknown;
+            return null;
+        }
+
+        /// <summary>
+        /// Returns the summary of the scan.
+        /// </summary>
+        /// <param name="scanId">Scan ID</param>
+        /// <returns></returns>
+        public CxSDKWebService.CxWSResponseScanSummary GetScanSummary(long scanId)
+        {
+            if (_sessionId == null)
+                throw new AuthenticationException();
+
+            try
+            {
+                CxSDKWebService.CxWSResponseScanSummary response = CallCheckmarxApi(() => SoapClient.GetScanSummary(_sessionId, scanId));
+                return response;
+            }
+            catch (ResponseException e)
+            {
+                log.Error(String.Format("Error, unable to get scan summary of ID {1}: {0}", e.Message, scanId), e);
+            }
+            catch (CommunicationException e)
+            {
+                log.Error(String.Format("Unable to communicate to SOAP API at endpoint {0}: {1} {2}", _endpoint.DnsSafeHost, e.GetType().Name, e.Message), e);
+            }
+
+            return null;
         }
 
         /// <summary>
