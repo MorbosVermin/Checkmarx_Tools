@@ -148,7 +148,7 @@ namespace Com.WaitWha.Checkmarx.SOAP
             {
                 CxSDKWebService.CxWSResponseLoginData response = CallCheckmarxApi(() => SoapClient.Login(creds, 1033));
                 _sessionId = response.SessionId; //cache the session ID
-                log.Info(String.Format("Successfully logged into Checkmarx WS at {0}: {1}", _endpoint.DnsSafeHost, _sessionId));
+                log.Debug(String.Format("Successfully logged into Checkmarx WS at {0}: {1}", _endpoint.DnsSafeHost, _sessionId));
                 ok = true;
 
             }
@@ -495,9 +495,14 @@ namespace Com.WaitWha.Checkmarx.SOAP
             string runId = null;
             try
             {
-                CxSDKWebService.CxWSResponseRunID response = (cronString.Length > 0) ? 
-                    CallCheckmarxApi(() => SoapClient.ScanWithSchedulingWithCron(_sessionId, scanArgs, cronString, utcEpochStartTime, utcEpochEndTime)) : 
+                log.Debug(String.Format("Starting {0}scan for {1}",
+                    (cronString.Length > 0) ? "scheduled " : "",
+                    (projectSettings.projectID > 0) ? projectSettings.projectID + "" : projectSettings.ProjectName));
+                CxSDKWebService.CxWSResponseRunID response = (cronString.Length > 0) ?
+                    CallCheckmarxApi(() => SoapClient.ScanWithSchedulingWithCron(_sessionId, scanArgs, cronString, utcEpochStartTime, utcEpochEndTime)) :
                     CallCheckmarxApi(() => SoapClient.Scan(_sessionId, scanArgs));
+                
+                log.Debug(String.Format("Received run ID: {0}", response.RunId));
                 runId = response.RunId;
             }
             catch (ResponseException e)

@@ -16,8 +16,8 @@ namespace Com.WaitWha.Checkmarx.REST
     {
         static readonly ILog Log = LogManager.GetLogger(typeof(CxRestService));
         public const string DEFAULT_USER_AGENT = "CxLIB.Net v1.0";
-        public static readonly string CX_REST_API = "cxrestapi";
-        public static readonly string AUTH_LOGIN = CX_REST_API + "auth/login";
+        public static readonly string CX_REST_API = "/cxrestapi";
+        public static readonly string AUTH_LOGIN = CX_REST_API + "/auth/login";
         public static readonly string CX_COOKIE = "CxCookie";
         public static readonly string CX_CSRF_TOKEN = "CXCSRFToken";
 
@@ -38,15 +38,17 @@ namespace Com.WaitWha.Checkmarx.REST
                 bool foundCxCSRFToken = false;
                 foreach(Cookie cookie in Cookies.GetCookies(Client.BaseAddress))
                 {
-                    if(cookie.Name.Equals(CX_COOKIE))
+                    if(cookie.Name.Equals(CX_COOKIE, StringComparison.CurrentCultureIgnoreCase))
                     {
+                        Log.Debug(String.Format("Cookie check: {0}", CX_COOKIE));
                         foundCxCookie = true;
                         if (cookie.Expired)
                             return false;
 
                     }
-                    else if(cookie.Name.Equals(CX_CSRF_TOKEN))
+                    else if(cookie.Name.Equals(CX_CSRF_TOKEN, StringComparison.CurrentCultureIgnoreCase))
                     {
+                        Log.Debug(String.Format("Cookie check: {0}", CX_CSRF_TOKEN));
                         foundCxCSRFToken = true;
                         if (cookie.Expired)
                             return false;
@@ -65,7 +67,8 @@ namespace Com.WaitWha.Checkmarx.REST
             Cookies = new CookieContainer();
             HttpClientHandler handler = new HttpClientHandler()
             {
-                CookieContainer = Cookies
+                CookieContainer = Cookies,
+                UseCookies = true
             };
 
             Client = new HttpClient(handler)
@@ -96,6 +99,9 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <returns></returns>
         async Task<HttpResponseMessage> Get(string requestUri, NameValuePairs nameValuePairs = null)
         {
+            if (!requestUri.StartsWith(CX_REST_API))
+                requestUri = String.Format("{0}{1}", CX_REST_API, requestUri);
+
             if(nameValuePairs != null)
             {
                 requestUri += "?"+ nameValuePairs.ToQueryString();
@@ -117,13 +123,20 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <returns>Response from the server if the status code is 200</returns>
         async Task<HttpResponseMessage> Post(string requestUri, string json)
         {
+            if (!requestUri.StartsWith(CX_REST_API))
+                requestUri = String.Format("{0}{1}", CX_REST_API, requestUri);
+
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
             Uri uri = new Uri(Client.BaseAddress, requestUri);
             Log.Debug(String.Format("Sending HTTP POST request to {0}: {1} bytes (application/json)",
                 uri,
                 Encoding.UTF8.GetByteCount(json)));
 
-            HttpResponseMessage response = await Client.PostAsync(uri, content);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri);
+            request.Content = content;
+            request.Headers.Add("Cookie", Cookies.GetCookieHeader(Client.BaseAddress));
+
+            HttpResponseMessage response = await Client.SendAsync(request);
             response.EnsureSuccessStatusCode();
                         
             return response;
@@ -196,7 +209,8 @@ namespace Com.WaitWha.Checkmarx.REST
             try
             {
                 HttpResponseMessage response = await Post(AUTH_LOGIN, json);
-                return IsSessionGood;
+                Log.Debug(String.Format("Successfully logged into REST API as {0}", username));
+                return true;
 
             }catch(Exception e)
             {
@@ -245,7 +259,7 @@ namespace Com.WaitWha.Checkmarx.REST
 
             try
             {
-                HttpResponseMessage response = await Post("sast/engineServers", json);
+                HttpResponseMessage response = await Post("/sast/engineServers", json);
                 string jsonReturned = await response.Content.ReadAsStringAsync();
                 Dictionary<string, dynamic> jsonObject = 
                     JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(jsonReturned);
@@ -273,7 +287,7 @@ namespace Com.WaitWha.Checkmarx.REST
             if(!IsSessionGood)
                 throw new Exception("Session is expired. Use Login() to establish a new session before calling this method.");
 
-            string requestUri = String.Format("sast/engineServers/{0}", engineId);
+            string requestUri = String.Format("/sast/engineServers/{0}", engineId);
             Log.Debug(String.Format("Unregistering engine {0}", engineId));
             try
             {
@@ -301,7 +315,7 @@ namespace Com.WaitWha.Checkmarx.REST
             Log.Debug("Attempting to get information for all scan engines");
             try
             {
-                HttpResponseMessage response = await Get("sast/engineServers");
+                HttpResponseMessage response = await Get("/sast/engineServers");
                 return GetAllEngineDetailsResponse.ParseResponse(response);
 
             }catch(Exception e)
@@ -327,7 +341,7 @@ namespace Com.WaitWha.Checkmarx.REST
             Log.Debug(String.Format("Getting scan engine information: {0}", engineId));
             try
             {
-                HttpResponseMessage response = await Get(String.Format("sast/engineServers/{0}", engineId));
+                HttpResponseMessage response = await Get(String.Format("/sast/engineServers/{0}", engineId));
                 return GetAllEngineDetailsResponse.ParseForOneResponse(response);
 
             }
@@ -379,7 +393,7 @@ namespace Com.WaitWha.Checkmarx.REST
             if (maxLoc > -1)
                 dict.Add("maxLoc", maxLoc);
 
-            string requestUri = String.Format("sast/engineServers/{0}", engineId);
+            string requestUri = String.Format("/sast/engineServers/{0}", engineId);
             string json = JsonConvert.SerializeObject(dict);
             StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
             Log.Debug(String.Format("Attempting to update scan engine: {0}", engineId));
@@ -408,7 +422,7 @@ namespace Com.WaitWha.Checkmarx.REST
             if (!IsSessionGood)
                 throw new Exception("Session is expired. Use Login() to establish a new session before calling this method.");
 
-            string requestUri = "sast/scanQueue";
+            string requestUri = "/sast/scanQueue";
             NameValuePairs nvPairs = null;
             if (projectId > 0)
             {
