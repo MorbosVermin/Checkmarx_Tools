@@ -135,29 +135,30 @@ namespace Com.WaitWha.Checkmarx.CxCLI
                 Console.WriteLine("  {0}", c.ToString());
             }
 
+            Console.WriteLine();
             Console.WriteLine("Required Options: ");
             Console.WriteLine("  -CxServer <uri>       The URI of the Checkmarx server (e.g. https://checkmarx.server).");
-            Console.WriteLine("  -CxUser <username>    The username to use when connecting to Cx. Be sure to prepend with the domain if using Windows/Domain authentication.");
+            Console.WriteLine("  -CxUser <username>    The username to use when connecting to Cx. Be sure to prepend the domain if using Windows/Domain authentication.");
             Console.WriteLine("  -CxPass <password>    The password to use when connecting to Cx.");
-
+            Console.WriteLine();
             Console.WriteLine("Other Options: ");
             Console.WriteLine("  -v                    Debug/Verbose mode.");
             Console.WriteLine("  -log <file>           Path to the log file to log to.");
             Console.WriteLine("  -UseSSL               TLS/SSL support for the connection to Checkmarx.");
-
+            Console.WriteLine();
             Console.WriteLine("Listing things...");
             Console.WriteLine("list <-Projects|-Scans|-Configurations|-Presets|-Users>");
-
+            Console.WriteLine();
             Console.WriteLine("Reporting...");
             Console.WriteLine("report -ScanId <int> [-Format <pdf|csv|rtf|xml>] [-Out <filename>]");
-
+            Console.WriteLine();
             Console.WriteLine("Scanning...");
-            Console.WriteLine("scan <-LocationPath <path>|-Zip <path>> [[-IsIncremental] [-IsPrivate] [-CronString <string>] [-UtcEpocStartTime <long>] [-UtcEpocEndTime <long>]]");
-
+            Console.WriteLine("scan <-LocationPath <path>|-Zip <path>> <-ProjectId <int> | [-Team <string>] -ProjectName <string> -PresetId <int> -ConfigurationId <int>> [[-IsIncremental] [-IsPrivate] [-CronString <string>] [-UtcEpocStartTime <long>] [-UtcEpocEndTime <long>]]");
+            Console.WriteLine();
             Console.WriteLine("Registering/Unregistering Scan Engines...");
-            Console.WriteLine("register -Name <string> -Url <http://checkmarx.server> [-MinLOC <int> -MaxLOC <int> [-IsBlocked] ]");
+            Console.WriteLine("register -Name <string> -Url <http://checkmarx.server> [-MinLOC <int> -MaxLOC <int> -IsBlocked]");
             Console.WriteLine("unregister -EngineId <int> [-BlockOnly]");
-            
+            Console.WriteLine();
             Environment.Exit(-1);
         }
 

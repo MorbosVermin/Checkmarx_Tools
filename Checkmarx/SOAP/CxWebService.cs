@@ -450,8 +450,8 @@ namespace Com.WaitWha.Checkmarx.SOAP
         ///     {
         ///         long projectID = 35;
         ///         
-        ///         CxSDKWebService.ProjectSettings pSettings = new CxSDKWebService.ProjectSettings();
-        ///         pSettings.ProjectID = projectID;
+        ///         CxSDKWebService.ProjectConfiguration configuration = service.GetProjectConfiguration(projectID);
+        ///         CxSDKWebService.ProjectSettings pSettings = configuration.ProjectSettings;
         ///         
         ///         CxSDKWebService.SourceCodeSettings scSettings = new CxSDKWebService.SourceCodeSettings();
         ///         scSettings.SourceOrigin = CxSDKWebService.SourceLocationType.Local;
@@ -463,13 +463,12 @@ namespace Com.WaitWha.Checkmarx.SOAP
         ///         string runId = service.Scan(pSettings, scSettings, true);
         ///         while(true)
         ///         {
-        ///             CxSDKWebService.ScanStatus scanStatus = service.GetScanStatus(runId);
-        ///             switch(scanStatus)
+        ///             CxSDKWebService.CxWSResponseScanStatus status = service.GetScanStatus(runId);
+        ///             switch(status.CurrentStatus)
         ///             {
-        ///                 //TODO 
+        ///                //TODO...
+        ///                Thread.Sleep(300);
         ///             }
-        ///             
-        ///             Thread.Sleep(300);
         ///         }
         ///     }
         /// }
