@@ -1,4 +1,5 @@
-﻿using Com.WaitWha.Checkmarx.Utils;
+﻿using Com.WaitWha.Checkmarx.Domain;
+using Com.WaitWha.Checkmarx.Utils;
 using log4net;
 using Newtonsoft.Json;
 using System;
@@ -12,12 +13,13 @@ using System.Threading.Tasks;
 
 namespace Com.WaitWha.Checkmarx.REST
 {
+    /// <summary>
+    /// Checkmarx REST API v8.6+.
+    /// </summary>
     public class CxRestService
     {
         static readonly ILog Log = LogManager.GetLogger(typeof(CxRestService));
-        public const string DEFAULT_USER_AGENT = "CxLIB.Net v1.0";
-        public static readonly string CX_REST_API = "/cxrestapi";
-        public static readonly string AUTH_LOGIN = CX_REST_API + "/auth/login";
+        public const string DEFAULT_USER_AGENT = "CxLIB.Net v1.6";
         public static readonly string CX_COOKIE = "CxCookie";
         public static readonly string CX_CSRF_TOKEN = "CXCSRFToken";
 
@@ -60,6 +62,11 @@ namespace Com.WaitWha.Checkmarx.REST
             }
         }
 
+        /// <summary>
+        /// Constructor
+        /// </summary>
+        /// <param name="baseUri">Uri for the base address of Checkmarx REST API (e.g. http://checkmarx.server.com)</param>
+        /// <param name="userAgent">A user agent string to send in requests. Useful in fingerprinting traffic.</param>
         public CxRestService(
             Uri baseUri,
             string userAgent = DEFAULT_USER_AGENT)
@@ -73,7 +80,7 @@ namespace Com.WaitWha.Checkmarx.REST
 
             Client = new HttpClient(handler)
             {
-                BaseAddress = new Uri(baseUri, CX_REST_API),
+                BaseAddress = new Uri(baseUri, "/cxrestapi/"),
                 MaxResponseContentBufferSize = 65355 * 4
             };
 
@@ -82,6 +89,9 @@ namespace Com.WaitWha.Checkmarx.REST
             Client.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", userAgent);
         }
 
+        /// <summary>
+        /// Client and Cookies are cleaned up immediately upon destruction. 
+        /// </summary>
         ~CxRestService()
         {
             Client = null;
@@ -99,17 +109,18 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <returns></returns>
         async Task<HttpResponseMessage> Get(string requestUri, NameValuePairs nameValuePairs = null)
         {
-            if (!requestUri.StartsWith(CX_REST_API))
-                requestUri = String.Format("{0}{1}", CX_REST_API, requestUri);
-
+            requestUri = "/cxrestapi/" + requestUri;
             if(nameValuePairs != null)
             {
                 requestUri += "?"+ nameValuePairs.ToQueryString();
             }
             
             Uri uri = new Uri(Client.BaseAddress, requestUri);
+            HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
+            request.Headers.TryAddWithoutValidation("Content-Type", "application/json;v=1.0");
+
             Log.Debug(String.Format("Sending HTTP GET request to {0}.", uri));
-            HttpResponseMessage response = await Client.GetAsync(uri);
+            HttpResponseMessage response = await Client.SendAsync(request);
             response.EnsureSuccessStatusCode();
 
             return response;
@@ -121,20 +132,11 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <param name="requestUri">Request URI</param>
         /// <param name="json">JSON</param>
         /// <returns>Response from the server if the status code is 200</returns>
-        async Task<HttpResponseMessage> Post(string requestUri, string json)
+        async Task<HttpResponseMessage> Post(string requestUri, HttpContent content)
         {
-            if (!requestUri.StartsWith(CX_REST_API))
-                requestUri = String.Format("{0}{1}", CX_REST_API, requestUri);
-
-            StringContent content = new StringContent(json, Encoding.UTF8, "application/json");
-            Uri uri = new Uri(Client.BaseAddress, requestUri);
-            Log.Debug(String.Format("Sending HTTP POST request to {0}: {1} bytes (application/json)",
-                uri,
-                Encoding.UTF8.GetByteCount(json)));
-
+            Uri uri = new Uri(Client.BaseAddress, string.Format("{0}{1}", "/cxrestapi", requestUri));
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Post, uri);
             request.Content = content;
-            request.Headers.Add("Cookie", Cookies.GetCookieHeader(Client.BaseAddress));
 
             HttpResponseMessage response = await Client.SendAsync(request);
             response.EnsureSuccessStatusCode();
@@ -192,10 +194,11 @@ namespace Com.WaitWha.Checkmarx.REST
         /// <summary>
         /// Logs into Checkmarx REST API.
         /// </summary>
-        /// <param name="username"></param>
-        /// <param name="password"></param>
-        /// <returns></returns>
+        /// <param name="username">Checkmarx username</param>
+        /// <param name="password">Checkmarx password (SecureString)</param>
+        /// <returns>Whether or not the login was successful</returns>
         /// <seealso cref="https://checkmarx.atlassian.net/wiki/spaces/KC/pages/135561432/Authentication+Login"/>
+        /// <see cref="StringUtils.GetSecureString(string)"/>
         public async Task<bool> Login(string username, SecureString password)
         {
             Dictionary<string, string> dict = new Dictionary<string, string>()
@@ -204,25 +207,27 @@ namespace Com.WaitWha.Checkmarx.REST
                 { "password", StringUtils.GetUnsecureString(password) }
             };
 
-            string json = JsonConvert.SerializeObject(dict);
-            Log.Debug(String.Format("Logging into Checkmarx as {0}", username));
+            StringContent content = 
+                new StringContent(JsonConvert.SerializeObject(dict), Encoding.UTF8, "application/json;v=1.0");
             try
             {
-                HttpResponseMessage response = await Post(AUTH_LOGIN, json);
-                Log.Debug(String.Format("Successfully logged into REST API as {0}", username));
-                return true;
-
-            }catch(Exception e)
+                await Post("/auth/login", content);
+            }
+            catch(Exception e)
             {
                 Log.Error(String.Format("Failed to login to Checkmarx as {0}: {1}", username, e.Message), e);
 
-            }finally
+            }
+            finally
             {
                 dict = null;
+                content = null;
             }
 
-            return false;
+            return IsSessionGood;
         }
+
+        #region Scan Engine Maintanence
 
         /// <summary>
         /// Registers a Scan Engine with Checkmarx
@@ -443,6 +448,104 @@ namespace Com.WaitWha.Checkmarx.REST
 
             return null;
         }
+
+        #endregion
+
+        #region v8.6+ REST API Functionality
+
+        /// <summary>
+        /// Returns a list of projects within Checkmarx.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<Project>> GetProjects()
+        {
+            try
+            {
+                HttpResponseMessage response = await Get("/projects");
+                return JsonConvert.DeserializeObject<List<Project>>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            }
+            catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get a list of projects: {0}", e.Message), e);
+            }
+
+            return new List<Project>();
+        }
+
+        /// <summary>
+        /// Adds a project to Checkmarx with default settings.
+        /// </summary>
+        /// <param name="name">Name</param>
+        /// <param name="teamId">GUID of the owning team.</param>
+        /// <param name="isPublic">Whether or not the project is viewable by other users within Checkmarx.</param>
+        /// <returns></returns>
+        public async Task<bool> AddProject(string name, string teamId, bool isPublic = true)
+        {
+            NameValuePairs nv = new NameValuePairs();
+            nv.Add("name", name);
+            nv.Add("teamId", teamId);
+            nv.Add("IsPublic", isPublic.ToString());
+
+            bool added = false;
+            try
+            {
+                await Post("/projects", 
+                    new StringContent(nv.ToJson(), Encoding.UTF8, "application/json;v=1.0"));
+                added = true;
+
+            }
+            catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to add project '{0}': {1}", name, e.Message), e);
+            }
+
+            return added;
+        }
+
+        /// <summary>
+        /// Gets a single project from Checkmarx by the given ID.
+        /// </summary>
+        /// <param name="id">ID of the project to get details for.</param>
+        /// <returns></returns>
+        public async Task<Project> GetProject(int id)
+        {
+            try
+            {
+                HttpResponseMessage response = await Get(string.Format("/projects/{0}", id));
+                return JsonConvert.DeserializeObject<Project>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }
+            catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get details for project {0}: {1}", id, e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Returns a list of teams within Checkmarx.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<Team>> GetTeams()
+        {
+            try
+            {
+                HttpResponseMessage response = await Get("/auth/teams");
+                return JsonConvert.DeserializeObject<List<Team>>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+            }
+            catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get teams from Checkmarx: {0}", e.Message), e);
+            }
+
+            return new List<Team>();
+        }
+
+        #endregion
 
     }
 }
