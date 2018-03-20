@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 namespace Com.WaitWha.Checkmarx.REST
 {
     /// <summary>
-    /// Checkmarx REST API v8.6+.
+    /// Checkmarx REST API v8.6+. See https://checkmarx.atlassian.net/wiki/spaces/KC/pages/244810440/Swagger+Examples+v8.6.0+and+up. 
     /// </summary>
     public class CxRestService
     {
