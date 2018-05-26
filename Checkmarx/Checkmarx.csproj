@@ -51,9 +51,13 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Domain\EngineConfiguration.cs" />
     <Compile Include="Domain\Link.cs" />
     <Compile Include="Domain\LinkableObject.cs" />
+    <Compile Include="Domain\Preset.cs" />
     <Compile Include="Domain\Project.cs" />
+    <Compile Include="Domain\Scan.cs" />
+    <Compile Include="Domain\ScanSettings.cs" />
     <Compile Include="Domain\Team.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="REST\CxRestService.cs" />

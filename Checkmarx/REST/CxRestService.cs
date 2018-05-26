@@ -545,6 +545,143 @@ namespace Com.WaitWha.Checkmarx.REST
             return new List<Team>();
         }
 
+        /// <summary>
+        /// Returns a list of all presets within Checkmarx.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<Preset>> GetPresets()
+        {
+            try
+            {
+                HttpResponseMessage response = await Get("/sast/presets");
+                return JsonConvert.DeserializeObject<List<Preset>>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }
+            catch (Exception e)
+            {
+                Log.Error(string.Format("Unable to get presets from Checkmarx: {0}", e.Message), e);
+            }
+
+            return new List<Preset>();
+        }
+
+        /// <summary>
+        /// Returns a Preset for the given ID.
+        /// </summary>
+        /// <param name="id">Preset ID</param>
+        /// <returns>Preset</returns>
+        /// <see cref="GetPresets"/>
+        public async Task<Preset> GetPreset(int id)
+        {
+            try
+            {
+                HttpResponseMessage response = await Get(string.Format("/sast/presets/{0}", id));
+                return JsonConvert.DeserializeObject<Preset>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }
+            catch (Exception e)
+            {
+                Log.Error(string.Format("Unable to get teams from Checkmarx: {0}", e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Returns a list of engine configurations within Checkmarx.
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<EngineConfiguration>> GetEngineConfigurations()
+        {
+            try
+            {
+                HttpResponseMessage response = await Get("/sast/engineConfigurations");
+                return JsonConvert.DeserializeObject<List<EngineConfiguration>>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }
+            catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get engine configuration: {0}", e.Message), e);
+            }
+
+            return new List<EngineConfiguration>();
+        }
+
+        /// <summary>
+        /// Returns an engine configuration for the given ID.
+        /// </summary>
+        /// <param name="id">Engine Configuration ID</param>
+        /// <returns></returns>
+        public async Task<EngineConfiguration> GetEngineConfiguration(int id)
+        {
+            try
+            {
+                HttpResponseMessage response = await Get(string.Format("/sast/engineConfigurations/{0}", id));
+                return JsonConvert.DeserializeObject<EngineConfiguration>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }
+            catch (Exception e)
+            {
+                Log.Error(string.Format("Unable to get list of engine configurations: {0}", e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Defines the SAST scan settings according to a project (preset and engine configuration).
+        /// </summary>
+        /// <param name="scanSettings"></param>
+        public void SetScanSettings(ScanSettings scanSettings)
+        {
+            try
+            {
+                Post("/sast/scanSettings", 
+                    new StringContent(JsonConvert.SerializeObject(scanSettings), Encoding.UTF8, "application/json;v=1.0"))
+                .GetAwaiter();
+
+            }
+            catch (Exception e)
+            {
+                Log.Error(string.Format("Unable to set scan settings: {0}", e.Message), e);
+            }
+        }
+
+        /// <summary>
+        /// Starts a scan of a project within Checkmarx.
+        /// </summary>
+        /// <param name="scan"></param>
+        /// <returns>Run ID</returns>
+        public async Task<long> StartScan(Scan scan)
+        {
+            long runId = -1;
+
+            try
+            {
+                HttpResponseMessage response = 
+                    await Post("/sast/scans", 
+                                new StringContent(JsonConvert.SerializeObject(scan), 
+                                                  Encoding.UTF8, 
+                                                  "application/json;v=1.0"));
+
+                Dictionary<string, dynamic> jsonReturned = 
+                    JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(
+                        response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+                runId = jsonReturned["id"];
+            }
+            catch (Exception e)
+            {
+                Log.Error(string.Format("Unable to get list of engine configurations: {0}", e.Message), e);
+            }
+
+            return runId;
+        }
+
         #endregion
 
     }
