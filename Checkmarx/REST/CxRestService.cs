@@ -264,7 +264,8 @@ namespace Com.WaitWha.Checkmarx.REST
 
             try
             {
-                HttpResponseMessage response = await Post("/sast/engineServers", json);
+                HttpResponseMessage response = await Post("/sast/engineServers",
+                    new StringContent(json, Encoding.UTF8, "application/json;v=1.0"));
                 string jsonReturned = await response.Content.ReadAsStringAsync();
                 Dictionary<string, dynamic> jsonObject = 
                     JsonConvert.DeserializeObject<Dictionary<string, dynamic>>(jsonReturned);
@@ -416,38 +417,7 @@ namespace Com.WaitWha.Checkmarx.REST
             return ok;
         }
 
-        /// <summary>
-        /// Returns a list of scans currently inqueued within Checkmarx.
-        /// </summary>
-        /// <param name="projectId">Optionally only get scans for a specific project.</param>
-        /// <returns></returns>
-        /// <seealso cref="https://checkmarx.atlassian.net/wiki/spaces/KC/pages/158302262/Get+All+Scan+in+Queue"/>
-        public async Task<List<GetAllScanInQueueResponse>> GetAllScanInQueue(int projectId = -1)
-        {
-            if (!IsSessionGood)
-                throw new Exception("Session is expired. Use Login() to establish a new session before calling this method.");
-
-            string requestUri = "/sast/scanQueue";
-            NameValuePairs nvPairs = null;
-            if (projectId > 0)
-            {
-                nvPairs = new NameValuePairs();
-                nvPairs.Add("projectId", projectId + "");
-            }
-
-            Log.Debug(String.Format("Getting scan queue for project: {0}", projectId));
-            try
-            {
-                HttpResponseMessage response = await Get(requestUri, nvPairs);
-                return GetAllScanInQueueResponse.ParseResponse(response);
-
-            }catch(Exception e)
-            {
-                Log.Error(String.Format("Unable to get list of scans: {0}", e.Message), e);
-            }
-
-            return null;
-        }
+        
 
         #endregion
 
@@ -676,10 +646,32 @@ namespace Com.WaitWha.Checkmarx.REST
             }
             catch (Exception e)
             {
-                Log.Error(string.Format("Unable to get list of engine configurations: {0}", e.Message), e);
+                Log.Error(string.Format("Unable to start scan: {0}", e.Message), e);
             }
 
             return runId;
+        }
+
+        /// <summary>
+        /// Returns the scan queue
+        /// </summary>
+        /// <returns></returns>
+        public async Task<List<GetAllScanInQueueResponse>> GetScanQueue()
+        {
+            List<GetAllScanInQueueResponse> responses = new List<GetAllScanInQueueResponse>();
+
+            try
+            {
+                HttpResponseMessage response = await Get("/sast/sastQueue");
+                return JsonConvert.DeserializeObject<List<GetAllScanInQueueResponse>>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get scan queue: {0}", e.Message), e);
+            }
+
+            return responses;
         }
 
         #endregion

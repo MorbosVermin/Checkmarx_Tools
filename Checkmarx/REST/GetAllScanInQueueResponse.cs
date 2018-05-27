@@ -1,41 +1,60 @@
-﻿using Newtonsoft.Json;
+﻿using Com.WaitWha.Checkmarx.Domain;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace Com.WaitWha.Checkmarx.REST
 {
+    /// <summary>
+    /// GET /sast/sastQueue
+    /// </summary>
     [Serializable]
+    [DataContract]
     public class GetAllScanInQueueResponse
     {
+        [DataMember(Name = "id")]
+        public long ScanId { get; set; }
 
-        public int id { get; set; }
-        public string runId { get; set; }
-        public int stage { get; set; }
-        public SimpleJsonObject project { get; set; }
-        public int engineId { get; set; }
-        public int loc { get; set; }
-        public IList<SimpleJsonObject> languages { get; set; }
-        public DateTime dateCreated { get; set; }
-        public DateTime queuedOn { get; set; }
-        public DateTime engineStartedOn { get; set; }
-        public bool isIncremental { get; set; }
-        public bool isPublic { get; set; }
-        public string origin { get; set; }
+        [DataMember(Name = "stage")]
+        public Stage Stage { get; set; }
 
-        public string ToJson()
-        {
-            return JsonConvert.SerializeObject(this);
-        }
+        [DataMember(Name = "teamId")]
+        public string TeamId { get; set; }
 
-        public static List<GetAllScanInQueueResponse> ParseResponse(HttpResponseMessage response)
-        {
-            string json = response.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-            return JsonConvert.DeserializeObject<List<GetAllScanInQueueResponse>>(json);
-        }
+        [DataMember(Name = "project")]
+        public Project Project { get; set; }
+
+        [DataMember(Name = "engine")]
+        public Engine Engine { get; set; }
+
+        [DataMember(Name = "loc")]
+        public long LOC { get; set; }
+
+        [DataMember(Name = "languages")]
+        public List<Language> Languages { get; set; }
+
+        [DataMember(Name = "dateCreated")]
+        public string DateCreated { get; set; }
+
+        [DataMember(Name = "queuedOn")]
+        public string QueuedOn { get; set; }
+
+        [DataMember(Name = "engineStartedOn")]
+        public string EngineStartedOn { get; set; }
+
+        [DataMember(Name = "isIncremental")]
+        public bool IsIncremental { get; set; }
+
+        [DataMember(Name = "isPublic")]
+        public bool IsPublic { get; set; }
+
+        [DataMember(Name = "origin")]
+        public string Origin { get; set; }
 
     }
 }
