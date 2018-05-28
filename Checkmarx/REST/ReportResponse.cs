@@ -10,12 +10,15 @@ namespace Com.WaitWha.Checkmarx.REST
 {
     [Serializable]
     [DataContract]
-    public class ReportRequest
+    public class ReportResponse
     {
-        [DataMember(Name = "reportType")]
-        public ReportTypes ReportType { get; set; }
+        [DataMember(Name = "reportId")]
+        public int ReportId { get; set; }
 
-        [DataMember(Name = "scanId")]
-        public long ScanId { get; set; }
+        [DataMember(Name = "status")]
+        public Link Status { get; set; }
+
+        [DataMember(Name = "report")]
+        public Link Report { get; set; }
     }
 }

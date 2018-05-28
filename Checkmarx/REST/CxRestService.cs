@@ -106,8 +106,12 @@ namespace Com.WaitWha.Checkmarx.REST
         /// </summary>
         /// <param name="requestUri">Request URI</param>
         /// <param name="nameValuePairs">Name Value Pairs (parameter names and values)</param>
+        /// <param name="contentType">The content type to use (defaults to application/json)</param>
         /// <returns></returns>
-        async Task<HttpResponseMessage> Get(string requestUri, NameValuePairs nameValuePairs = null)
+        async Task<HttpResponseMessage> Get(
+            string requestUri, 
+            NameValuePairs nameValuePairs = null, 
+            string contentType = "application/json;v=1.0")
         {
             requestUri = "/cxrestapi/" + requestUri;
             if(nameValuePairs != null)
@@ -117,7 +121,7 @@ namespace Com.WaitWha.Checkmarx.REST
             
             Uri uri = new Uri(Client.BaseAddress, requestUri);
             HttpRequestMessage request = new HttpRequestMessage(HttpMethod.Get, uri);
-            request.Headers.TryAddWithoutValidation("Content-Type", "application/json;v=1.0");
+            request.Headers.TryAddWithoutValidation("Content-Type", contentType);
 
             Log.Debug(String.Format("Sending HTTP GET request to {0}.", uri));
             HttpResponseMessage response = await Client.SendAsync(request);
@@ -672,6 +676,79 @@ namespace Com.WaitWha.Checkmarx.REST
             }
 
             return responses;
+        }
+
+        /// <summary>
+        /// Starts the process of generating a report.
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        public async Task<ReportResponse> RequestReport(ReportRequest request)
+        {
+            try
+            {
+                HttpResponseMessage response = await Post("/reports/sastScan",
+                        new StringContent(
+                            JsonConvert.SerializeObject(request),
+                            Encoding.UTF8,
+                            "application/json;v=1.0"));
+                return JsonConvert.DeserializeObject<ReportResponse>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to start report generation: {0}", e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Retrieves the status of the report generation process.
+        /// </summary>
+        /// <param name="reportId"></param>
+        /// <returns></returns>
+        public async Task<ReportStatusResponse> GetReportStatus(int reportId)
+        {
+            try
+            {
+                HttpResponseMessage response =
+                    await Get(string.Format("/reports/sastScan/{0}/status", reportId));
+                return JsonConvert.DeserializeObject<ReportStatusResponse>(
+                    response.Content.ReadAsStringAsync().GetAwaiter().GetResult());
+
+            }catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to get status of report {0}: {1}", reportId, e.Message), e);
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Download a report by the given report ID.
+        /// </summary>
+        /// <param name="reportId">ID</param>
+        /// <param name="format">Format of the report to download.</param>
+        /// <returns></returns>
+        public async Task<byte[]> GetReport(int reportId, ReportTypes format = ReportTypes.XML)
+        {
+            try
+            {
+                HttpResponseMessage response =
+                    await Get(
+                        string.Format("/reports/sastScan/{0}", reportId), 
+                        null, 
+                        string.Format("application/{0}", format.ToString().ToLower()));
+
+                return response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+
+            }catch(Exception e)
+            {
+                Log.Error(string.Format("Unable to download report {0} as format {1}", reportId, format), e);
+            }
+
+            return new byte[0];
         }
 
         #endregion
